@@ -1,0 +1,23 @@
+- name: Install Kibana
+  apt:
+    name: kibana
+    state: present
+    update_cache: yes
+
+- name: Configure Kibana to listen on all interfaces
+  lineinfile:
+    path: /etc/kibana/kibana.yml
+    regexp: '^#?server.host:'
+    line: 'server.host: "0.0.0.0"'
+
+- name: Set Elasticsearch URL
+  lineinfile:
+    path: /etc/kibana/kibana.yml
+    regexp: '^#?elasticsearch.hosts:'
+    line: 'elasticsearch.hosts: ["http://elastic.ru-central1.internal:9200"]'
+
+- name: Enable and start Kibana
+  service:
+    name: kibana
+    state: started
+    enabled: yes
