@@ -1,0 +1,103 @@
+- name: Install required packages for Zabbix (PostgreSQL + Zabbix)
+  apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+      - wget
+      - gnupg
+    state: present
+    update_cache: yes
+
+- name: Add Zabbix repository
+  shell: |
+    wget https://repo.zabbix.com/zabbix/6.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_6.0-5+ubuntu22.04_all.deb -O /tmp/zabbix-release.deb
+    dpkg -i /tmp/zabbix-release.deb
+    apt update
+  args:
+    creates: /etc/apt/sources.list.d/zabbix.list
+
+- name: Install Zabbix server, frontend and agent
+  apt:
+    name:
+      - zabbix-server-pgsql
+      - zabbix-frontend-php
+      - zabbix-apache-conf
+      - zabbix-sql-scripts
+      - zabbix-agent
+    state: present
+    update_cache: yes
+
+- name: Ensure PostgreSQL is listening on localhost
+  lineinfile:
+    path: /etc/postgresql/14/main/postgresql.conf
+    regexp: '^#?listen_addresses'
+    line: "listen_addresses = 'localhost'"
+  notify: Restart PostgreSQL
+
+- name: Ensure DB user for Zabbix exists
+  become_user: postgres
+  postgresql_user:
+    name: "{{ zabbix_db_user }}"
+    password: "{{ zabbix_db_password }}"
+    role_attr_flags: CREATEDB
+
+- name: Ensure DB for Zabbix exists
+  become_user: postgres
+  postgresql_db:
+    name: "{{ zabbix_db_name }}"
+    owner: "{{ zabbix_db_user }}"
+    encoding: UTF8
+
+- name: Import initial Zabbix schema
+  become_user: postgres
+  shell: |
+    zcat /usr/share/zabbix-sql-scripts/postgresql/server.sql.gz | psql {{ zabbix_db_name }}
+  args:
+    creates: /var/lib/postgresql/.zabbix_schema_imported
+
+- name: Mark schema as imported
+  file:
+    path: /var/lib/postgresql/.zabbix_schema_imported
+    state: touch
+    owner: postgres
+    group: postgres
+    mode: '0644'
+
+- name: Configure Zabbix server DB settings
+  lineinfile:
+    path: /etc/zabbix/zabbix_server.conf
+    regexp: '^#?DBName='
+    line: "DBName={{ zabbix_db_name }}"
+  notify: Restart Zabbix server
+
+- name: Configure Zabbix DB user
+  lineinfile:
+    path: /etc/zabbix/zabbix_server.conf
+    regexp: '^#?DBUser='
+    line: "DBUser={{ zabbix_db_user }}"
+  notify: Restart Zabbix server
+
+- name: Configure Zabbix DB password
+  lineinfile:
+    path: /etc/zabbix/zabbix_server.conf
+    regexp: '^#?DBPassword='
+    line: "DBPassword={{ zabbix_db_password }}"
+  notify: Restart Zabbix server
+
+- name: Ensure Zabbix server is enabled and running
+  service:
+    name: zabbix-server
+    state: started
+    enabled: yes
+
+- name: Ensure Zabbix agent is enabled and running
+  service:
+    name: zabbix-agent
+    state: started
+    enabled: yes
+
+- name: Ensure Apache is enabled and running
+  service:
+    name: apache2
+    state: started
+    enabled: yes
