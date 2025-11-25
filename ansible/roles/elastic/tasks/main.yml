@@ -1,0 +1,50 @@
+- name: Install dependencies
+  apt:
+    name:
+      - apt-transport-https
+      - wget
+      - gnupg
+    state: present
+    update_cache: yes
+
+- name: Add Elasticsearch GPG key
+  shell: |
+    wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | gpg --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg
+  args:
+    creates: /usr/share/keyrings/elasticsearch-keyring.gpg
+
+- name: Add Elasticsearch repository
+  copy:
+    dest: /etc/apt/sources.list.d/elastic-8.x.list
+    content: "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main
+"
+
+- name: Install Elasticsearch
+  apt:
+    name: elasticsearch
+    state: present
+    update_cache: yes
+
+- name: Configure Elasticsearch to listen on all interfaces
+  lineinfile:
+    path: /etc/elasticsearch/elasticsearch.yml
+    regexp: '^#?network.host:'
+    line: 'network.host: 0.0.0.0'
+
+- name: Set discovery type to single-node
+  lineinfile:
+    path: /etc/elasticsearch/elasticsearch.yml
+    regexp: '^#?discovery.type:'
+    line: 'discovery.type: single-node'
+
+- name: Set JVM heap size to 1g
+  lineinfile:
+    path: /etc/elasticsearch/jvm.options.d/heap.options
+    create: yes
+    line: "-Xms1g\n-Xmx1g"
+
+- name: Enable and start Elasticsearch
+  service:
+    name: elasticsearch
+    state: started
+    enabled: yes
