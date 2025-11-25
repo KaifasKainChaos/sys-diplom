@@ -1,0 +1,28 @@
+- hosts: all
+  gather_facts: yes
+  roles:
+    - common
+
+- hosts: web
+  roles:
+    - web
+
+- hosts: zabbix
+  roles:
+    - zabbix
+
+- hosts: all:!zabbix
+  roles:
+    - zabbix_agent
+
+- hosts: elastic
+  roles:
+    - elastic
+
+- hosts: kibana
+  roles:
+    - kibana
+
+- hosts: web
+  roles:
+    - filebeat

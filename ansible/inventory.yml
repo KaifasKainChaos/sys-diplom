@@ -1,0 +1,15 @@
+all:
+  children:
+    web:
+      hosts:
+        web1.ru-central1.internal:
+        web2.ru-central1.internal:
+    zabbix:
+      hosts:
+        zabbix.ru-central1.internal:
+    elastic:
+      hosts:
+        elastic.ru-central1.internal:
+    kibana:
+      hosts:
+        kibana.ru-central1.internal:
